@@ -11,6 +11,9 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec("CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
+    description TEXT,
+    due_date TEXT NOT NULL,
+    responsible TEXT NOT NULL,
     done INTEGER DEFAULT 0
 )");
 
@@ -20,13 +23,23 @@ $error = '';
 // Criar nova tarefa
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['title'])) {
     $title = trim($_POST['title']);
+    $description = trim($_POST['description'] ?? '');
+    $due_date = trim($_POST['due_date'] ?? '');
+    $responsible = trim($_POST['responsible'] ?? '');
     
     // Regra de negócio solta no meio do arquivo
     if (empty($title)) {
         $error = "O título da tarefa não pode estar vazio!";
+    } elseif (empty($due_date)) {
+        $error = "A data de vencimento é obrigatória!";
+    } elseif (empty($responsible)) {
+        $error = "O responsável é obrigatório!";
     } else {
-        $stmt = $pdo->prepare("INSERT INTO tasks (title) VALUES (:title)");
+        $stmt = $pdo->prepare("INSERT INTO tasks (title, description, due_date, responsible) VALUES (:title, :description, :due_date, :responsible)");
         $stmt->bindValue(':title', $title);
+        $stmt->bindValue(':description', $description);
+        $stmt->bindValue(':due_date', $due_date);
+        $stmt->bindValue(':responsible', $responsible);
         $stmt->execute();
         
         // Redirecionamento misturado com a lógica
@@ -96,11 +109,25 @@ $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
             margin-top: 20px; 
             margin-bottom: 20px; 
         }
-        input[type="text"] { 
+        input[type="text"], input[type="date"], textarea { 
             flex: 1; 
             padding: 10px; 
             border: 1px solid #ccc; 
             border-radius: 4px; 
+        }
+        .form-fields {
+            display: grid;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .form-fields input, .form-fields textarea {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         button { 
             background: #2563eb; 
@@ -118,11 +145,25 @@ $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
             padding: 0; 
         }
         li { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
             padding: 12px; 
             border-bottom: 1px solid #eee; 
+        }
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .task-details {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .task-details p {
+            margin: 4px 0;
+        }
+        .detail-label {
+            font-weight: bold;
         }
         li.done span { 
             text-decoration: line-through; 
@@ -144,21 +185,36 @@ $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="error"><?php echo $error; ?></div>
     <?php endif; ?>
 
-    <form method="POST" action="index.php" class="form-group">
-        <input type="text" name="title" placeholder="O que precisa ser feito?" autocomplete="off">
-        <button type="submit">Adicionar</button>
+    <form method="POST" action="index.php">
+        <div class="form-group">
+            <input type="text" name="title" placeholder="Título da tarefa" autocomplete="off" required>
+            <button type="submit">Adicionar</button>
+        </div>
+        <div class="form-fields">
+            <textarea name="description" placeholder="Descrição (opcional)"></textarea>
+            <input type="date" name="due_date" required>
+            <input type="text" name="responsible" placeholder="Responsável (obrigatório)" required>
+        </div>
     </form>
 
     <ul>
         <?php foreach ($tasks as $task): ?>
             <li class="<?php echo $task['done'] ? 'done' : ''; ?>">
-                <span><?php echo htmlspecialchars($task['title']); ?></span>
-                
-                <div class="actions">
-                    <?php if (!$task['done']): ?>
-                        <a href="?action=complete&id=<?php echo $task['id']; ?>" title="Concluir">✅</a>
+                <div class="task-header">
+                    <span><?php echo htmlspecialchars($task['title']); ?></span>
+                    <div class="actions">
+                        <?php if (!$task['done']): ?>
+                            <a href="?action=complete&id=<?php echo $task['id']; ?>" title="Concluir">✅</a>
+                        <?php endif; ?>
+                        <a href="?action=delete&id=<?php echo $task['id']; ?>" onclick="return confirm('Tem certeza que deseja excluir esta tarefa?');" title="Excluir">❌</a>
+                    </div>
+                </div>
+                <div class="task-details">
+                    <p><span class="detail-label">Responsável:</span> <?php echo htmlspecialchars($task['responsible']); ?></p>
+                    <p><span class="detail-label">Vencimento:</span> <?php echo date('d/m/Y', strtotime($task['due_date'])); ?></p>
+                    <?php if (!empty($task['description'])): ?>
+                        <p><span class="detail-label">Descrição:</span> <?php echo htmlspecialchars($task['description']); ?></p>
                     <?php endif; ?>
-                    <a href="?action=delete&id=<?php echo $task['id']; ?>" onclick="return confirm('Tem certeza que deseja excluir esta tarefa?');" title="Excluir">❌</a>
                 </div>
             </li>
         <?php endforeach; ?>
