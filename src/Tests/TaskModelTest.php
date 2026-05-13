@@ -1,0 +1,37 @@
+<?php
+use PHPUnit\Framework\TestCase;
+
+require_once __DIR__ . '/../Model/Task.php';
+
+class TaskModelTest extends TestCase {
+    public function testNaoPodeSalvarTarefaSemTitulo() {
+        $pdoMock = $this->createMock(PDO::class); // Fingimos que o banco existe
+        $model = new Task($pdoMock);
+       
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage("Título, Data de Vencimento e Responsável são obrigatórios.");
+       
+        $model->save("", "Fazer compras", "2026-12-31", "João"); // Deve disparar exceção
+    }
+
+    public function testNaoPodeSalvarTarefaSemResponsavel() {
+        $pdoMock = $this->createMock(PDO::class);
+        $model = new Task($pdoMock);
+       
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage("Título, Data de Vencimento e Responsável são obrigatórios.");
+       
+        $model->save("Estudar", "Preparar para prova", "2026-12-31", ""); // Deve disparar exceção
+    }
+
+    public function testNaoPodeSalvarTarefaSemData() {
+        $pdoMock = $this->createMock(PDO::class);
+        $model = new Task($pdoMock);
+       
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage("Título, Data de Vencimento e Responsável são obrigatórios.");
+       
+        $model->save("Estudar", "Preparar para prova", "", "João"); // Deve disparar exceção
+    }
+}
+?>
